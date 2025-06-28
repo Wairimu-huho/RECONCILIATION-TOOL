@@ -12,6 +12,15 @@ const ReconciliationTool = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
 
+   // Sample data for demo
+   const sampleInternalData = [
+    { transaction_reference: 'TXN001', amount: 150.00, status: 'completed', date: '2024-01-15', customer: 'John Doe', description: 'Payment for services' },
+    { transaction_reference: 'TXN002', amount: 75.50, status: 'pending', date: '2024-01-16', customer: 'Jane Smith', description: 'Subscription payment' },
+    { transaction_reference: 'TXN003', amount: 200.00, status: 'completed', date: '2024-01-17', customer: 'Bob Johnson', description: 'Product purchase' },
+    { transaction_reference: 'TXN004', amount: 45.25, status: 'failed', date: '2024-01-18', customer: 'Alice Brown', description: 'Service fee' },
+    { transaction_reference: 'TXN005', amount: 300.00, status: 'completed', date: '2024-01-19', customer: 'Charlie Wilson', description: 'Consultation fee' }
+  ];
+
   const handleFileUpload = useCallback((file, type) => {
     if (!file) return;
 
