@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback } from 'react';
-import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, RotateCcw, Download, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, RotateCcw, Download, Loader2, Eye, EyeOff, ChevronDown, ChevronRight, Database } from 'lucide-react';
 import * as Papa from 'papaparse';
 
 const ReconciliationTool = () => {
@@ -11,6 +10,50 @@ const ReconciliationTool = () => {
   const [results, setResults] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [visibleColumns, setVisibleColumns] = useState({});
+  const [expandedRows, setExpandedRows] = useState(new Set());
+
+ 
+  const sampleProviderData = [
+    { transaction_reference: 'TXN001', amount: 150.00, status: 'completed', date: '2024-01-15', customer: 'John Doe', description: 'Payment for services' },
+    { transaction_reference: 'TXN002', amount: 75.49, status: 'pending', date: '2024-01-16', customer: 'Jane Smith', description: 'Subscription payment' },
+    { transaction_reference: 'TXN003', amount: 200.00, status: 'completed', date: '2024-01-17', customer: 'Bob Johnson', description: 'Product purchase' },
+    { transaction_reference: 'TXN006', amount: 125.00, status: 'completed', date: '2024-01-20', customer: 'David Lee', description: 'Monthly subscription' },
+    { transaction_reference: 'TXN007', amount: 89.99, status: 'completed', date: '2024-01-21', customer: 'Emma Davis', description: 'Software license' }
+  ];
+
+  const loadSampleData = (type) => {
+    const sampleData = type === 'internal' ? sampleInternalData : sampleProviderData;
+    const fileName = type === 'internal' ? 'sample_internal.csv' : 'sample_provider.csv';
+    
+    if (type === 'internal') {
+      setInternalData(sampleData);
+      setInternalFileName(fileName);
+    } else {
+      setProviderData(sampleData);
+      setProviderFileName(fileName);
+    }
+    setError('');
+  };
+
+  const toggleColumn = (column) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [column]: !prev[column]
+    }));
+  };
+
+  const toggleRowExpansion = (rowIndex) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(rowIndex)) {
+        newSet.delete(rowIndex);
+      } else {
+        newSet.add(rowIndex);
+      }
+      return newSet;
+    });
+  };
 
   const handleFileUpload = useCallback((file, type) => {
     if (!file) return;
@@ -185,9 +228,25 @@ const ReconciliationTool = () => {
       <div className={`text-xl font-bold mb-3 ${fileName ? 'text-emerald-800' : 'text-slate-700'}`}>
         {fileName || `${type === 'internal' ? 'Internal System Export' : 'Provider Statement'}`}
       </div>
-      <div className={`text-sm font-medium ${fileName ? 'text-emerald-600' : 'text-slate-500'}`}>
+      <div className={`text-sm font-medium mb-6 ${fileName ? 'text-emerald-600' : 'text-slate-500'}`}>
         {fileName ? `✓ ${fileName}` : 'Drop your CSV file here or click to browse'}
       </div>
+      
+      {/* Sample Data Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          loadSampleData(type);
+        }}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+          fileName 
+            ? 'bg-emerald-200 text-emerald-700 hover:bg-emerald-300' 
+            : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+        }`}
+      >
+        <Database size={16} />
+        Load Sample Data
+      </button>
     </div>
   );
 
@@ -215,15 +274,42 @@ const ReconciliationTool = () => {
       );
     }
 
-    const columns = [...new Set(data.flatMap(row => Object.keys(row)))];
+    const allColumns = [...new Set(data.flatMap(row => Object.keys(row)))];
+    const visibleCols = allColumns.filter(col => !visibleColumns[col]);
 
     return (
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        {/* Column Toggle Controls */}
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-4 border-b border-slate-200">
+          <div className="flex items-center gap-4 mb-3">
+            <h4 className="text-sm font-semibold text-slate-700">Toggle Columns:</h4>
+            <div className="flex flex-wrap gap-2">
+              {allColumns.map(column => (
+                <button
+                  key={column}
+                  onClick={() => toggleColumn(column)}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    visibleColumns[column]
+                      ? 'bg-slate-300 text-slate-600'
+                      : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                  }`}
+                >
+                  {visibleColumns[column] ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {formatColumnName(column)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-slate-800 to-slate-900">
               <tr>
-                {columns.map(column => (
+                <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider w-12">
+                  Details
+                </th>
+                {visibleCols.map(column => (
                   <th key={column} className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     {formatColumnName(column)}
                   </th>
@@ -232,26 +318,78 @@ const ReconciliationTool = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.map((row, index) => (
-                <tr 
-                  key={index} 
-                  className={`hover:bg-slate-50 transition-colors duration-200 ${
-                    type === 'mismatched' 
-                      ? row.amount_mismatch && row.status_mismatch 
-                        ? 'bg-gradient-to-r from-red-50 to-rose-50 border-l-4 border-red-400'
-                        : row.amount_mismatch 
-                          ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-400'
-                          : row.status_mismatch 
-                            ? 'bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-400'
-                            : ''
-                      : ''
-                  }`}
-                >
-                  {columns.map(column => (
-                    <td key={column} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                      {formatCellValue(row[column], column)}
+                <React.Fragment key={index}>
+                  <tr 
+                    className={`hover:bg-slate-50 transition-colors duration-200 cursor-pointer ${
+                      type === 'mismatched' 
+                        ? row.amount_mismatch && row.status_mismatch 
+                          ? 'bg-gradient-to-r from-red-50 to-rose-50 border-l-4 border-red-400'
+                          : row.amount_mismatch 
+                            ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-400'
+                            : row.status_mismatch 
+                              ? 'bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-400'
+                              : ''
+                        : ''
+                    }`}
+                    onClick={() => toggleRowExpansion(index)}
+                  >
+                    <td className="px-4 py-4">
+                      <button className="p-1 rounded-lg hover:bg-slate-200 transition-colors">
+                        {expandedRows.has(index) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
                     </td>
-                  ))}
-                </tr>
+                    {visibleCols.map(column => (
+                      <td key={column} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                        {formatCellValue(row[column], column)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Expanded Row Details */}
+                  {expandedRows.has(index) && (
+                    <tr className="bg-slate-50">
+                      <td colSpan={visibleCols.length + 1} className="px-6 py-6">
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
+                          <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                            Transaction Details
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {allColumns.map(column => (
+                              <div key={column} className="bg-slate-50 rounded-lg p-3">
+                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                  {formatColumnName(column)}
+                                </div>
+                                <div className="text-sm font-medium text-slate-900">
+                                  {formatCellValue(row[column], column)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {type === 'mismatched' && (
+                            <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                              <h5 className="font-semibold text-amber-800 mb-2">Mismatch Details:</h5>
+                              <div className="space-y-2 text-sm">
+                                {row.amount_mismatch && (
+                                  <div className="flex items-center gap-2 text-amber-700">
+                                    <AlertTriangle size={14} />
+                                    Amount mismatch: Internal: {formatCellValue(row.amount, 'amount')} vs Provider: {formatCellValue(row.provider_amount, 'provider_amount')}
+                                  </div>
+                                )}
+                                {row.status_mismatch && (
+                                  <div className="flex items-center gap-2 text-amber-700">
+                                    <AlertTriangle size={14} />
+                                    Status mismatch: Internal: {formatCellValue(row.status, 'status')} vs Provider: {formatCellValue(row.provider_status, 'provider_status')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
